@@ -1,0 +1,282 @@
+import 'dart:io';
+import 'dart:convert';
+import 'dart:async';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import '../models/printer_data.dart';
+
+class MqttService {
+  static const String printerIp = "192.168.1.57";
+  static const String accessCode = "22911038";
+  static const String deviceId = "01P00A372900757";
+
+  MqttServerClient? _client;
+  Function(PrinterData)? onDataReceived;
+  Function(bool)? onConnectionChanged;
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  static const int maxReconnectAttempts = 3;
+  bool _isConnecting = false;
+
+  bool get isConnected =>
+      _client?.connectionStatus?.state == MqttConnectionState.connected;
+
+  Future<bool> connect() async {
+    if (_isConnecting) {
+      print('Connection already in progress, skipping...');
+      return false;
+    }
+
+    _isConnecting = true;
+
+    try {
+      // Clean up any existing connection first
+      await _cleanupConnection();
+
+      // Try secure connection first (port 8883)
+      bool connected = await _attemptConnection(8883, true);
+
+      if (!connected) {
+        print('Secure connection failed, trying insecure connection...');
+        await _cleanupConnection();
+        // Fallback to insecure connection (port 1883)
+        connected = await _attemptConnection(1883, false);
+      }
+
+      _isConnecting = false;
+      return connected;
+    } catch (e) {
+      print('MQTT connection error: $e');
+      _isConnecting = false;
+      return false;
+    }
+  }
+
+  Future<void> _cleanupConnection() async {
+    if (_client != null) {
+      try {
+        _client!.disconnect();
+        await Future.delayed(Duration(milliseconds: 500)); // Wait for cleanup
+      } catch (e) {
+        print('Error during cleanup: $e');
+      }
+      _client = null;
+    }
+  }
+
+  Future<bool> _attemptConnection(int port, bool secure) async {
+    try {
+      final clientId = 'bbl_flutter_${DateTime.now().millisecondsSinceEpoch}';
+
+      print('Creating MQTT client for $printerIp:$port (secure: $secure)');
+      _client = MqttServerClient(printerIp, clientId);
+
+      // Essential configuration
+      _client!.port = port;
+      _client!.secure = secure;
+      _client!.logging(on: false); // Disable verbose logging
+      _client!.connectTimeoutPeriod = 8000; // 8 second timeout
+      _client!.keepAlivePeriod = 30;
+      _client!.autoReconnect = false; // Handle reconnection manually
+
+      // Set socket options to prevent connection issues
+      _client!.setProtocolV311();
+
+      if (secure) {
+        _client!.securityContext = SecurityContext.defaultContext;
+        _client!.onBadCertificate = (Object certificate) => true;
+      }
+
+      // Set up event handlers
+      _client!.onConnected = () {
+        print('✅ MQTT Connected successfully to $printerIp:$port');
+        _reconnectAttempts = 0;
+        onConnectionChanged?.call(true);
+        _subscribeToReports();
+      };
+
+      _client!.onDisconnected = () {
+        print('❌ MQTT Disconnected from $printerIp:$port');
+        onConnectionChanged?.call(false);
+        if (_reconnectAttempts < maxReconnectAttempts && !_isConnecting) {
+          _scheduleReconnect();
+        }
+      };
+
+      _client!.onSubscribed = (String topic) {
+        print('📡 Subscribed to topic: $topic');
+      };
+
+      // Create connection message
+      final connMessage = MqttConnectMessage()
+          .withClientIdentifier(clientId)
+          .authenticateAs('bblp', accessCode)
+          .startClean()
+          .withWillQos(MqttQos.atMostOnce);
+
+      _client!.connectionMessage = connMessage;
+
+      print('🔄 Attempting connection to $printerIp:$port...');
+      await _client!.connect();
+
+      // Verify connection
+      if (_client!.connectionStatus?.state == MqttConnectionState.connected) {
+        _setupMessageListener();
+        return true;
+      } else {
+        print(
+            '❌ Connection failed - Status: ${_client!.connectionStatus?.state}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Connection attempt failed on $printerIp:$port: $e');
+      await _cleanupConnection();
+      return false;
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_reconnectAttempts >= maxReconnectAttempts) {
+      print('Max reconnection attempts reached. Stopping reconnection.');
+      return;
+    }
+
+    _reconnectTimer?.cancel();
+    final delay =
+        Duration(seconds: (3 * (_reconnectAttempts + 1)).clamp(3, 30));
+    _reconnectAttempts++;
+
+    print(
+        '⏰ Scheduling reconnection attempt $_reconnectAttempts in ${delay.inSeconds} seconds');
+
+    _reconnectTimer = Timer(delay, () {
+      if (!isConnected && !_isConnecting) {
+        connect();
+      }
+    });
+  }
+
+  void _subscribeToReports() {
+    final topic = 'device/$deviceId/report';
+    print('📡 Subscribing to topic: $topic');
+    _client!.subscribe(topic, MqttQos.atMostOnce);
+  }
+
+  void _setupMessageListener() {
+    _client!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+      final MqttPublishMessage message = c[0].payload as MqttPublishMessage;
+      final payload =
+          MqttPublishPayload.bytesToStringAsString(message.payload.message);
+
+      try {
+        final data = json.decode(payload);
+        if (data['print'] != null) {
+          final printerData = PrinterData.fromJson(data['print']);
+          onDataReceived?.call(printerData);
+        }
+      } catch (e) {
+        print('Error parsing MQTT message: $e');
+      }
+    });
+  }
+
+  Future<bool> sendCommand(Map<String, dynamic> command) async {
+    if (!isConnected) {
+      print('❌ Cannot send command - MQTT not connected');
+      return false;
+    }
+
+    try {
+      final topic = 'device/$deviceId/request';
+      final message = json.encode(command);
+
+      final builder = MqttClientPayloadBuilder();
+      builder.addString(message);
+
+      _client!.publishMessage(topic, MqttQos.atMostOnce, builder.payload!);
+      print('📤 Command sent: ${command.keys.first}');
+      return true;
+    } catch (e) {
+      print('❌ Error sending command: $e');
+      return false;
+    }
+  }
+
+  Future<bool> pausePrint() async {
+    final command = {
+      "print": {
+        "command": "print",
+        "param": "PAUSE",
+        "sequence_id": DateTime.now().millisecondsSinceEpoch.toString()
+      }
+    };
+    return await sendCommand(command);
+  }
+
+  Future<bool> ledControl(String mode) async {
+    final command = {
+      "system": {
+        "command": "ledctrl",
+        "sequence_id": DateTime.now().millisecondsSinceEpoch.toString(),
+        "led_mode": mode
+      }
+    };
+    return await sendCommand(command);
+  }
+
+  Future<bool> homeCommand() async {
+    final command = {
+      "print": {
+        "command": "gcode_line",
+        "param": "G28 \n",
+        "sequence_id": DateTime.now().millisecondsSinceEpoch.toString()
+      }
+    };
+    return await sendCommand(command);
+  }
+
+  Future<bool> cooldownNozzle() async {
+    final command = {
+      "print": {
+        "command": "gcode_line",
+        "param": "M104 S0\n",
+        "sequence_id": DateTime.now().millisecondsSinceEpoch.toString()
+      }
+    };
+    return await sendCommand(command);
+  }
+
+  Future<bool> cooldownBed() async {
+    final command = {
+      "print": {
+        "command": "gcode_line",
+        "param": "M140 S0\n",
+        "sequence_id": DateTime.now().millisecondsSinceEpoch.toString()
+      }
+    };
+    return await sendCommand(command);
+  }
+
+  Future<bool> cleanNozzle() async {
+    final command = {
+      "print": {
+        "command": "gcode_line",
+        "param":
+            "G92 E0\nG1 E-0.5 F300\nG1 X60 Y265 F15000\nG1 X100 F5000\nG1 X70 F15000\nG1 X100 F5000\nG1 X70 F15000\nG1 X100 F5000\nG1 X70 F15000\n",
+        "sequence_id": DateTime.now().millisecondsSinceEpoch.toString()
+      }
+    };
+    return await sendCommand(command);
+  }
+
+  void disconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectAttempts = maxReconnectAttempts; // Prevent auto-reconnect
+    _client?.disconnect();
+  }
+
+  void dispose() {
+    disconnect();
+    _client = null;
+  }
+}
