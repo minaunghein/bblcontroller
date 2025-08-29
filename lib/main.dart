@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/printer_provider.dart';
-import 'screens/printer_control_screen.dart';
+import 'screens/printers_list_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,8 +23,14 @@ class MyApp extends StatelessWidget {
             backgroundColor: Color(0xFF2d2d2d),
             foregroundColor: Colors.white,
           ),
+          cardTheme: const CardTheme(
+            color: Color(0xFF2d2d2d),
+          ),
+          drawerTheme: const DrawerThemeData(
+            backgroundColor: Color(0xFF1e1e1e),
+          ),
         ),
-        home: const PrinterControlScreen(),
+        home: const PrintersListScreen(),
         debugShowCheckedModeBanner: false,
       ),
     );

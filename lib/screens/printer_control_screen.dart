@@ -1,3 +1,4 @@
+import 'package:bblmanager/models/printer.dart';
 import 'package:bblmanager/widgets/temperature_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -5,53 +6,67 @@ import '../providers/printer_provider.dart';
 import '../widgets/directional_control.dart';
 import '../widgets/control_buttons.dart';
 
-class PrinterControlScreen extends StatelessWidget {
-  const PrinterControlScreen({super.key});
+class PrinterControlScreen extends StatefulWidget {
+  final Printer? printer;
 
+  const PrinterControlScreen({super.key, this.printer});
+
+  @override
+  State<PrinterControlScreen> createState() => _PrinterControlScreenState();
+}
+
+class _PrinterControlScreenState extends State<PrinterControlScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bambu Lab Printer'),
-        centerTitle: true,
+        title: Text(widget.printer?.name ?? 'Printer Control'),
         actions: [
-          Consumer<PrinterProvider>(
-            builder: (context, provider, child) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    if (provider.isConnected) {
-                      //provider.disconnect();
-                    } else {
-                      provider.connect();
-                    }
-                  },
-                  icon: Icon(
-                    provider.isConnected ? Icons.wifi_off : Icons.wifi,
-                    size: 18,
-                  ),
-                  label: Text(
-                    provider.isConnected ? 'Disconnect' : 'Connect',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: provider.isConnected
-                        ? Colors.red.shade600
-                        : Colors.green.shade600,
-                    foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              );
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Navigate to printer-specific settings if needed
             },
           ),
         ],
+        centerTitle: true,
       ),
+      // actions: [
+      //   Consumer<PrinterProvider>(
+      //     builder: (context, provider, child) {
+      //       return Padding(
+      //           padding: const EdgeInsets.only(right: 16.0),
+      //           child: ElevatedButton.icon(
+      //             onPressed: () {
+      //               if (provider.isConnected) {
+      //                 //provider.disconnect();
+      //               } else {
+      //                 provider.connect();
+      //               }
+      //             },
+      //             icon: Icon(
+      //               provider.isConnected ? Icons.wifi_off : Icons.wifi,
+      //               size: 18,
+      //             ),
+      //             label: Text(
+      //               provider.isConnected ? 'Disconnect' : 'Connect',
+      //               style: const TextStyle(fontSize: 12),
+      //             ),
+      //             style: ElevatedButton.styleFrom(
+      //               backgroundColor: provider.isConnected
+      //                   ? Colors.red.shade600
+      //                   : Colors.green.shade600,
+      //               foregroundColor: Colors.white,
+      //               padding:
+      //                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      //               shape: RoundedRectangleBorder(
+      //                 borderRadius: BorderRadius.circular(20),
+      //               ),
+      //             ),
+      //           ));
+      //     },
+      //   ),
+      // ],
       body: Consumer<PrinterProvider>(
         builder: (context, provider, child) {
           return Container(
