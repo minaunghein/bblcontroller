@@ -82,65 +82,142 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                         ? const Center(
                             child: Text('No printers found'),
                           )
-                        : ListView.builder(
+                        : GridView.builder(
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 0.8,
+                            ),
                             itemCount: _filteredPrinters.length,
                             itemBuilder: (context, index) {
                               final printer = _filteredPrinters[index];
                               final isOnline = _connectivityService
                                   .isPrinterOnline(printer.id);
 
-                              return ListTile(
-                                leading: Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isOnline ? Colors.green : Colors.red,
-                                  ),
+                              return Card(
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                title: Text(printer.name),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(printer.ipAddress),
-                                    Text(
-                                      isOnline ? 'Online' : 'Offline',
-                                      style: TextStyle(
-                                        color: isOnline
-                                            ? Colors.green
-                                            : Colors.red,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      isOnline ? Icons.wifi : Icons.wifi_off,
-                                      color:
-                                          isOnline ? Colors.green : Colors.red,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    PopupMenuButton(
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          child: const Text('Edit'),
-                                          onTap: () => _editPrinter(printer),
+                                child: InkWell(
+                                  onTap: () => _connectToPrinter(
+                                      printer, printer.isOnline),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Status indicator and menu
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: isOnline
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                              ),
+                                            ),
+                                            PopupMenuButton(
+                                              itemBuilder: (context) => [
+                                                PopupMenuItem(
+                                                  child: const Text('Edit'),
+                                                  onTap: () =>
+                                                      _editPrinter(printer),
+                                                ),
+                                                PopupMenuItem(
+                                                  child: const Text('Delete'),
+                                                  onTap: () =>
+                                                      _deletePrinter(printer),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
-                                        PopupMenuItem(
-                                          child: const Text('Delete'),
-                                          onTap: () => _deletePrinter(printer),
+                                        const SizedBox(height: 12),
+                                        // Printer icon
+                                        Center(
+                                          child: Icon(
+                                            Icons.print,
+                                            size: 48,
+                                            color: isOnline
+                                                ? Colors.blue
+                                                : Colors.grey,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        // Printer name
+                                        Text(
+                                          printer.name,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        // Printer model
+                                        Text(
+                                          'Model: ${printer.model ?? 'Unknown'}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        // IP Address
+                                        Text(
+                                          'IP: ${printer.ipAddress}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const Spacer(),
+                                        // Status text and wifi icon
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              isOnline ? 'Online' : 'Offline',
+                                              style: TextStyle(
+                                                color: isOnline
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            Icon(
+                                              isOnline
+                                                  ? Icons.wifi
+                                                  : Icons.wifi_off,
+                                              color: isOnline
+                                                  ? Colors.green
+                                                  : Colors.red,
+                                              size: 20,
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                                onTap: () => _connectToPrinter(
-                                    printer, printer.isOnline),
                               );
                             },
                           ),
@@ -432,14 +509,15 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: modelController,
-                  decoration: const InputDecoration(
-                    labelText: 'Model (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                // Remove the model input field
+                // TextField(
+                //   controller: modelController,
+                //   decoration: const InputDecoration(
+                //     labelText: 'Model (Optional)',
+                //     border: OutlineInputBorder(),
+                //   ),
+                // ),
+                // const SizedBox(height: 16),
                 TextField(
                   controller: deviceIDController,
                   decoration: const InputDecoration(

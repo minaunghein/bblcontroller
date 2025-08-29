@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import '../models/printer_data.dart';
 import '../models/printer.dart';
 import '../services/mqtt_service.dart';
+import '../services/database_helper.dart';
 
 class PrinterProvider with ChangeNotifier {
   final MqttService _mqttService = MqttService();
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
   PrinterData _printerData = PrinterData();
   bool _isConnected = false;
   String _lastUpdate = 'Never';
@@ -66,19 +68,43 @@ class PrinterProvider with ChangeNotifier {
     await _mqttService.connect();
   }
 
-  void _updatePrinterData(PrinterData data) {
+  void _updatePrinterData(PrinterData data) async {
     _printerData = data;
     _lastUpdate = DateTime.now().toString().substring(11, 19);
 
     // Update current printer with real-time data if available
     if (_currentPrinter != null) {
+      // Create updated device information if received from payload
+      Device? updatedDevice = _currentPrinter!.device;
+      if (data.device != null) {
+        // Update device model from MQTT payload
+        updatedDevice = _currentPrinter!.device.copyWith(
+          model: data.device!.model,
+          nozzleDiameter: data.device!.nozzleDiameter,
+          nozzleType: data.device!.nozzleType,
+        );
+
+        print('Device model updated from payload: ${data.device!.model}');
+      }
+
       _currentPrinter = _currentPrinter!.copyWith(
         nozzleTemper: data.nozzleTemper,
         bedTemper: data.bedTemper,
         mcPercent: data.mcPercent,
         mcRemainingTime: data.mcRemainingTime,
         printerStatus: data.status,
+        device: updatedDevice,
       );
+
+      // Update database with new device information if device data was received
+      if (data.device != null) {
+        try {
+          await _databaseHelper.updatePrinter(_currentPrinter!);
+          print('Printer device information updated in database');
+        } catch (e) {
+          print('Error updating printer device in database: $e');
+        }
+      }
     }
 
     print(

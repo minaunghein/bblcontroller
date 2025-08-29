@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -8,7 +10,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _darkMode = true;
   bool _notifications = true;
   bool _autoConnect = false;
   double _refreshInterval = 5.0;
@@ -19,112 +20,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildSection(
-            'Appearance',
-            [
-              SwitchListTile(
-                title: const Text('Dark Mode'),
-                subtitle: const Text('Use dark theme'),
-                value: _darkMode,
-                onChanged: (value) {
-                  setState(() {
-                    _darkMode = value;
-                  });
-                },
+      body: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildSection(
+                'Appearance',
+                [
+                  SwitchListTile(
+                    title: const Text('Dark Mode'),
+                    subtitle: const Text('Use dark theme'),
+                    value: themeProvider.isDarkMode,
+                    onChanged: (value) {
+                      themeProvider.setTheme(value);
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSection(
-            'Connection',
-            [
-              SwitchListTile(
-                title: const Text('Auto Connect'),
-                subtitle:
-                    const Text('Automatically connect to last used printer'),
-                value: _autoConnect,
-                onChanged: (value) {
-                  setState(() {
-                    _autoConnect = value;
-                  });
-                },
-              ),
-              ListTile(
-                title: const Text('Refresh Interval'),
-                subtitle: Text('${_refreshInterval.toInt()} seconds'),
-                trailing: SizedBox(
-                  width: 150,
-                  child: Slider(
-                    value: _refreshInterval,
-                    min: 1.0,
-                    max: 30.0,
-                    divisions: 29,
+              const SizedBox(height: 24),
+              _buildSection(
+                'Connection',
+                [
+                  SwitchListTile(
+                    title: const Text('Auto Connect'),
+                    subtitle: const Text(
+                        'Automatically connect to last used printer'),
+                    value: _autoConnect,
                     onChanged: (value) {
                       setState(() {
-                        _refreshInterval = value;
+                        _autoConnect = value;
                       });
                     },
                   ),
-                ),
+                  ListTile(
+                    title: const Text('Refresh Interval'),
+                    subtitle: Text('${_refreshInterval.toInt()} seconds'),
+                    trailing: SizedBox(
+                      width: 150,
+                      child: Slider(
+                        value: _refreshInterval,
+                        min: 1.0,
+                        max: 30.0,
+                        divisions: 29,
+                        onChanged: (value) {
+                          setState(() {
+                            _refreshInterval = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildSection(
+                'Notifications',
+                [
+                  SwitchListTile(
+                    title: const Text('Enable Notifications'),
+                    subtitle: const Text('Receive print status notifications'),
+                    value: _notifications,
+                    onChanged: (value) {
+                      setState(() {
+                        _notifications = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildSection(
+                'About',
+                [
+                  ListTile(
+                    title: const Text('Version'),
+                    subtitle: const Text('1.0.0'),
+                    trailing: const Icon(Icons.info_outline),
+                  ),
+                  ListTile(
+                    title: const Text('Licenses'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () {
+                      showLicensePage(context: context);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildSection(
+                'Data',
+                [
+                  ListTile(
+                    title: const Text('Clear Cache'),
+                    subtitle: const Text('Clear app cache and temporary data'),
+                    trailing: const Icon(Icons.clear),
+                    onTap: _clearCache,
+                  ),
+                  ListTile(
+                    title: const Text('Reset Settings'),
+                    subtitle: const Text('Reset all settings to default'),
+                    trailing: const Icon(Icons.restore),
+                    onTap: _resetSettings,
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 24),
-          _buildSection(
-            'Notifications',
-            [
-              SwitchListTile(
-                title: const Text('Enable Notifications'),
-                subtitle: const Text('Receive print status notifications'),
-                value: _notifications,
-                onChanged: (value) {
-                  setState(() {
-                    _notifications = value;
-                  });
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSection(
-            'About',
-            [
-              ListTile(
-                title: const Text('Version'),
-                subtitle: const Text('1.0.0'),
-                trailing: const Icon(Icons.info_outline),
-              ),
-              ListTile(
-                title: const Text('Licenses'),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  showLicensePage(context: context);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSection(
-            'Data',
-            [
-              ListTile(
-                title: const Text('Clear Cache'),
-                subtitle: const Text('Clear app cache and temporary data'),
-                trailing: const Icon(Icons.clear),
-                onTap: _clearCache,
-              ),
-              ListTile(
-                title: const Text('Reset Settings'),
-                subtitle: const Text('Reset all settings to default'),
-                trailing: const Icon(Icons.restore),
-                onTap: _resetSettings,
-              ),
-            ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -193,7 +196,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () {
               setState(() {
-                _darkMode = true;
+                Provider.of<ThemeProvider>(context, listen: false)
+                    .setTheme(true);
                 _notifications = true;
                 _autoConnect = false;
                 _refreshInterval = 5.0;

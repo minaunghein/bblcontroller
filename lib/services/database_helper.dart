@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert'; // Add this import for JSON operations
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/printer.dart';
@@ -125,6 +126,15 @@ class DatabaseHelper {
       return List.generate(maps.length, (i) {
         final map = Map<String, dynamic>.from(maps[i]);
         map['isOnline'] = maps[i]['isOnline'] == 1;
+        // Parse device JSON string back to object
+        if (map['device'] != null && map['device'].toString().isNotEmpty) {
+          try {
+            map['device'] = json.decode(map['device']);
+          } catch (e) {
+            print('Error parsing device JSON: $e');
+            map['device'] = null;
+          }
+        }
         return Printer.fromJson(map);
       });
     } catch (e) {
@@ -183,6 +193,8 @@ class DatabaseHelper {
     final printerMap = printer.toJson();
     printerMap['updatedAt'] = now;
     printerMap['isOnline'] = printer.isOnline ? 1 : 0;
+    // Convert device object to JSON string for storage
+    printerMap['device'] = json.encode(printer.device.toJson());
 
     try {
       return await db.update(
@@ -433,6 +445,29 @@ class DatabaseHelper {
     } catch (e) {
       print('Error searching templates: $e');
       return [];
+    }
+  }
+
+  Future<int> updatePrinterDeviceInfo(String printerId, Device device) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    final updateMap = {
+      'device': json.encode(device.toJson()),
+      'model': device.model, // Also update the legacy model field
+      'updatedAt': now,
+    };
+
+    try {
+      return await db.update(
+        'printers',
+        updateMap,
+        where: 'id = ?',
+        whereArgs: [printerId],
+      );
+    } catch (e) {
+      print('Error updating printer device info: $e');
+      return 0;
     }
   }
 }
