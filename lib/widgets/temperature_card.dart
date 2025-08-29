@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class TemperatureCard extends StatelessWidget {
-  final IconData icon; // Change from String to IconData
+  final IconData icon;
   final String title;
   final double temperature;
   final double target;
@@ -28,17 +28,49 @@ class TemperatureCard extends StatelessWidget {
           width: 2,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isActive ? Colors.orange : Colors.grey,
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: isActive ? Colors.orange : Colors.grey,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? Colors.white : Colors.grey.shade300,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${temperature.toStringAsFixed(1)}°C',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? Colors.orange : Colors.white,
+                ),
+              ),
+              if (target > 0)
+                Text(
+                  '/${target.toStringAsFixed(0)}°C',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );

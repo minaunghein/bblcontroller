@@ -23,9 +23,9 @@ class PrinterProvider with ChangeNotifier {
   // Add setPrinter method to configure the current printer
   void setPrinter(Printer printer) {
     // Disconnect from current printer if connected
-    if (_isConnected) {
-      disconnect();
-    }
+    //if (_isConnected) {
+    //  disconnect();
+    //}
 
     _currentPrinter = printer;
     _mqttService.configurePrinter(printer);
@@ -69,6 +69,20 @@ class PrinterProvider with ChangeNotifier {
   void _updatePrinterData(PrinterData data) {
     _printerData = data;
     _lastUpdate = DateTime.now().toString().substring(11, 19);
+
+    // Update current printer with real-time data if available
+    if (_currentPrinter != null) {
+      _currentPrinter = _currentPrinter!.copyWith(
+        nozzleTemper: data.nozzleTemper,
+        bedTemper: data.bedTemper,
+        mcPercent: data.mcPercent,
+        mcRemainingTime: data.mcRemainingTime,
+        printerStatus: data.status,
+      );
+    }
+
+    print(
+        'Updated printer data: nozzle=${data.nozzleTemper}°C, bed=${data.bedTemper}°C, progress=${data.mcPercent}%, remaining=${data.mcRemainingTime}min, status=${data.status}');
     notifyListeners();
   }
 

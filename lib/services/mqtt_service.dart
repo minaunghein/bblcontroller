@@ -56,7 +56,7 @@ class MqttService {
         print('Secure connection failed, trying insecure connection...');
         await _cleanupConnection();
         // Fallback to insecure connection (port 1883)
-        connected = await _attemptConnection(1883, false);
+        connected = await _attemptConnection(8883, true);
       }
 
       _isConnecting = false;
@@ -92,8 +92,8 @@ class MqttService {
       _client!.secure = secure;
       _client!.logging(on: false); // Disable verbose logging
       _client!.connectTimeoutPeriod = 8000; // 8 second timeout
-      _client!.keepAlivePeriod = 30;
-      _client!.autoReconnect = false; // Handle reconnection manually
+      _client!.keepAlivePeriod = 10;
+      _client!.autoReconnect = true; // Handle reconnection manually
 
       // Set socket options to prevent connection issues
       _client!.setProtocolV311();
@@ -186,14 +186,43 @@ class MqttService {
 
       try {
         final data = json.decode(payload);
+        print('Received MQTT message: $data');
+
+        // Enhanced message handling based on flask_app.py
         if (data['print'] != null) {
-          final printerData = PrinterData.fromJson(data['print']);
+          final printData = data['print'];
+
+          // Create PrinterData with enhanced properties
+          final printerData = PrinterData(
+            nozzleTemper: (printData['nozzle_temper'] ?? 0).toDouble(),
+            bedTemper: (printData['bed_temper'] ?? 0).toDouble(),
+            mcPercent: printData['mc_percent'] ?? 0,
+            mcRemainingTime:
+                _parseRemainingTime(printData['mc_remaining_time']),
+            status: printData['gcode_state'] ?? 'Unknown',
+            lastUpdate: data['timestamp'] ?? DateTime.now().toIso8601String(),
+          );
+
+          print(
+              'Parsed printer data: nozzle=${printerData.nozzleTemper}, bed=${printerData.bedTemper}, progress=${printerData.mcPercent}%, status=${printerData.status}');
           onDataReceived?.call(printerData);
         }
       } catch (e) {
         print('Error parsing MQTT message: $e');
       }
     });
+  }
+
+  // Helper method to parse remaining time similar to flask_app.py
+  int _parseRemainingTime(dynamic rawTime) {
+    if (rawTime == null) return 0;
+
+    try {
+      return int.parse(rawTime.toString());
+    } catch (e) {
+      print('Failed to convert mc_remaining_time: $rawTime');
+      return 0;
+    }
   }
 
   Future<bool> sendCommand(Map<String, dynamic> command) async {

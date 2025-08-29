@@ -170,7 +170,7 @@ class _PrinterControlScreenState extends State<PrinterControlScreen> {
             title: 'Nozzle',
             temperature: provider.printerData.nozzleTemper,
             target: 0,
-            isActive: false,
+            isActive: provider.printerData.nozzleTemper > 0,
           ),
           const SizedBox(height: 16),
           TemperatureCard(
@@ -178,7 +178,7 @@ class _PrinterControlScreenState extends State<PrinterControlScreen> {
             title: 'Bed',
             temperature: provider.printerData.bedTemper,
             target: 0,
-            isActive: true,
+            isActive: provider.printerData.bedTemper > 0,
           ),
           const SizedBox(height: 16),
           const TemperatureCard(

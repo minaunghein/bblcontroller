@@ -1,3 +1,48 @@
+class Device {
+  final String nozzleDiameter;
+  final String model;
+  final String nozzleType;
+
+  Device({
+    required this.nozzleDiameter,
+    required this.model,
+    required this.nozzleType,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'nozzle_diameter': nozzleDiameter,
+      'model': model,
+      'nozzle_type': nozzleType,
+    };
+  }
+
+  factory Device.fromJson(Map<String, dynamic> json) {
+    return Device(
+      nozzleDiameter: json['nozzle_diameter'] ?? '0.4',
+      model: json['model'] ?? 'Unknown',
+      nozzleType: json['nozzle_type'] ?? 'standard',
+    );
+  }
+
+  Device copyWith({
+    String? nozzleDiameter,
+    String? model,
+    String? nozzleType,
+  }) {
+    return Device(
+      nozzleDiameter: nozzleDiameter ?? this.nozzleDiameter,
+      model: model ?? this.model,
+      nozzleType: nozzleType ?? this.nozzleType,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'Device{nozzleDiameter: $nozzleDiameter, model: $model, nozzleType: $nozzleType}';
+  }
+}
+
 class Printer {
   final String id;
   final String name;
@@ -11,6 +56,14 @@ class Printer {
   final DateTime? lastSeen;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  // Additional properties from flask_app.py
+  final double nozzleTemper;
+  final double bedTemper;
+  final int mcPercent;
+  final int mcRemainingTime;
+  final String printerStatus;
+  // Device subproperties
+  final Device device;
 
   Printer({
     required this.id,
@@ -25,7 +78,13 @@ class Printer {
     this.lastSeen,
     this.createdAt,
     this.updatedAt,
-  });
+    this.nozzleTemper = 0.0,
+    this.bedTemper = 0.0,
+    this.mcPercent = 0,
+    this.mcRemainingTime = 0,
+    this.printerStatus = 'Unknown',
+    Device? device,
+  }) : device = device ?? Device(nozzleDiameter: '0.4', model: 'Unknown', nozzleType: 'standard');
 
   Map<String, dynamic> toJson() {
     return {
@@ -41,6 +100,12 @@ class Printer {
       'lastSeen': lastSeen?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'nozzleTemper': nozzleTemper,
+      'bedTemper': bedTemper,
+      'mcPercent': mcPercent,
+      'mcRemainingTime': mcRemainingTime,
+      'printerStatus': printerStatus,
+      'device': device.toJson(),
     };
   }
 
@@ -61,6 +126,12 @@ class Printer {
           json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       updatedAt:
           json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      nozzleTemper: (json['nozzleTemper'] ?? 0).toDouble(),
+      bedTemper: (json['bedTemper'] ?? 0).toDouble(),
+      mcPercent: json['mcPercent'] ?? 0,
+      mcRemainingTime: json['mcRemainingTime'] ?? 0,
+      printerStatus: json['printerStatus'] ?? 'Unknown',
+      device: json['device'] != null ? Device.fromJson(json['device']) : null,
     );
   }
 
@@ -77,6 +148,12 @@ class Printer {
     DateTime? lastSeen,
     DateTime? createdAt,
     DateTime? updatedAt,
+    double? nozzleTemper,
+    double? bedTemper,
+    int? mcPercent,
+    int? mcRemainingTime,
+    String? printerStatus,
+    Device? device,
   }) {
     return Printer(
       id: id ?? this.id,
@@ -91,6 +168,12 @@ class Printer {
       lastSeen: lastSeen ?? this.lastSeen,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      nozzleTemper: nozzleTemper ?? this.nozzleTemper,
+      bedTemper: bedTemper ?? this.bedTemper,
+      mcPercent: mcPercent ?? this.mcPercent,
+      mcRemainingTime: mcRemainingTime ?? this.mcRemainingTime,
+      printerStatus: printerStatus ?? this.printerStatus,
+      device: device ?? this.device,
     );
   }
 

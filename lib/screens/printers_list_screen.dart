@@ -745,15 +745,16 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
         final printerProvider =
             Provider.of<PrinterProvider>(context, listen: false);
         printerProvider.setPrinter(printer);
-        await printerProvider.connect();
+        await printerProvider.connect().then((value) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PrinterControlScreen(printer: printer),
+            ),
+          );
+        });
 
         // Navigate to printer control screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PrinterControlScreen(printer: printer),
-          ),
-        );
       } else {
         // Show error message with helpful tips
         showDialog(
