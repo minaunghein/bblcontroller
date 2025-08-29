@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/printer_data.dart';
+import '../models/printer.dart';
 import '../services/mqtt_service.dart';
 
 class PrinterProvider with ChangeNotifier {
@@ -7,20 +8,39 @@ class PrinterProvider with ChangeNotifier {
   PrinterData _printerData = PrinterData();
   bool _isConnected = false;
   String _lastUpdate = 'Never';
+  Printer? _currentPrinter;
 
   PrinterData get printerData => _printerData;
   bool get isConnected => _isConnected;
   String get lastUpdate => _lastUpdate;
+  Printer? get currentPrinter => _currentPrinter;
 
   PrinterProvider() {
     _mqttService.onDataReceived = _updatePrinterData;
     _mqttService.onConnectionChanged = _updateConnectionStatus;
-    // Remove auto-connect, let user manually connect
-    // _connectToMqtt();
+  }
+
+  // Add setPrinter method to configure the current printer
+  void setPrinter(Printer printer) {
+    // Disconnect from current printer if connected
+    if (_isConnected) {
+      disconnect();
+    }
+
+    _currentPrinter = printer;
+    _mqttService.configurePrinter(printer);
+    notifyListeners();
   }
 
   // Add public connect method
   Future<void> connect() async {
+    if (_currentPrinter == null) {
+      if (kDebugMode) {
+        print('No printer selected. Call setPrinter() first.');
+      }
+      return;
+    }
+
     try {
       await _mqttService.connect();
     } catch (e) {

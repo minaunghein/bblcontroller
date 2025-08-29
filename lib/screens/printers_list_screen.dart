@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/printer.dart';
 import '../providers/printer_provider.dart';
 import '../services/database_helper.dart';
+import '../services/printer_connectivity_service.dart';
 import 'printer_control_screen.dart';
 import 'settings_screen.dart';
 import '../models/printer_template.dart';
@@ -85,22 +86,61 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                             itemCount: _filteredPrinters.length,
                             itemBuilder: (context, index) {
                               final printer = _filteredPrinters[index];
+                              final isOnline = _connectivityService
+                                  .isPrinterOnline(printer.id);
+
                               return ListTile(
+                                leading: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isOnline ? Colors.green : Colors.red,
+                                  ),
+                                ),
                                 title: Text(printer.name),
-                                subtitle: Text(printer.ipAddress),
-                                trailing: PopupMenuButton(
-                                  itemBuilder: (context) => [
-                                    PopupMenuItem(
-                                      child: const Text('Edit'),
-                                      onTap: () => _editPrinter(printer),
-                                    ),
-                                    PopupMenuItem(
-                                      child: const Text('Delete'),
-                                      onTap: () => _deletePrinter(printer),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(printer.ipAddress),
+                                    Text(
+                                      isOnline ? 'Online' : 'Offline',
+                                      style: TextStyle(
+                                        color: isOnline
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                onTap: () => _connectToPrinter(printer),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isOnline ? Icons.wifi : Icons.wifi_off,
+                                      color:
+                                          isOnline ? Colors.green : Colors.red,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    PopupMenuButton(
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          child: const Text('Edit'),
+                                          onTap: () => _editPrinter(printer),
+                                        ),
+                                        PopupMenuItem(
+                                          child: const Text('Delete'),
+                                          onTap: () => _deletePrinter(printer),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                onTap: () => _connectToPrinter(
+                                    printer, printer.isOnline),
                               );
                             },
                           ),
@@ -121,12 +161,33 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
   List<PrinterTemplate> _templates = [];
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
+  final PrinterConnectivityService _connectivityService =
+      PrinterConnectivityService();
 
   @override
   void initState() {
     super.initState();
     _loadPrinters();
     _loadTemplates();
+    _setupConnectivityService();
+  }
+
+  void _setupConnectivityService() {
+    _connectivityService.onPrinterStatusChanged = (printerId, isOnline) {
+      setState(() {
+        // Update the printer status in the local list
+        final printerIndex = _printers.indexWhere((p) => p.id == printerId);
+        if (printerIndex != -1) {
+          _printers[printerIndex] =
+              _printers[printerIndex].copyWith(isOnline: isOnline);
+          _filteredPrinters = _printers
+              .where((printer) => printer.name
+                  .toLowerCase()
+                  .contains(_searchController.text.toLowerCase()))
+              .toList();
+        }
+      });
+    };
   }
 
   Future<void> _loadPrinters() async {
@@ -141,6 +202,9 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
         _filteredPrinters = printers;
         _isLoading = false;
       });
+
+      // Start monitoring printer connectivity
+      _connectivityService.startMonitoring(printers);
     } catch (e) {
       print('Error loading printers: $e');
       setState(() {
@@ -182,41 +246,157 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Template selection dropdown
+                // Template selection section with enhanced UI
                 if (_templates.isNotEmpty) ...<Widget>[
-                  DropdownButtonFormField<PrinterTemplate>(
-                    value: selectedTemplate,
-                    decoration: const InputDecoration(
-                      labelText: 'Use Template (Optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<PrinterTemplate>(
-                        value: null,
-                        child: Text('None - Enter manually'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<PrinterTemplate>(
+                          value: selectedTemplate,
+                          decoration: const InputDecoration(
+                            labelText: 'Select Template',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem<PrinterTemplate>(
+                              value: null,
+                              child: Text('None - Enter manually'),
+                            ),
+                            ..._templates.map((template) => DropdownMenuItem(
+                                  value: template,
+                                  child: Text(template.name),
+                                )),
+                          ],
+                          onChanged: (template) {
+                            setDialogState(() {
+                              selectedTemplate = template;
+                            });
+                          },
+                        ),
                       ),
-                      ..._templates.map((template) => DropdownMenuItem(
-                            value: template,
-                            child: Text(template.name),
-                          )),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: selectedTemplate != null
+                            ? () {
+                                setDialogState(() {
+                                  if (selectedTemplate != null) {
+                                    nameController.text =
+                                        selectedTemplate!.printerName ?? '';
+                                    ipController.text =
+                                        selectedTemplate!.ipAddress ?? '';
+                                    portController.text =
+                                        selectedTemplate!.port?.toString() ??
+                                            '8883';
+                                    accessCodeController.text =
+                                        selectedTemplate!.accessCode ?? '';
+                                    modelController.text =
+                                        selectedTemplate!.model ?? '';
+                                    deviceIDController.text =
+                                        selectedTemplate!.deviceID ?? '';
+
+                                    // Show confirmation snackbar
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Template "${selectedTemplate!.name}" loaded successfully!'),
+                                        backgroundColor: Colors.green,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Load'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
                     ],
-                    onChanged: (template) {
-                      setDialogState(() {
-                        selectedTemplate = template;
-                        if (template != null) {
-                          nameController.text = template.printerName ?? '';
-                          ipController.text = template.ipAddress ?? '';
-                          portController.text =
-                              template.port?.toString() ?? '8883';
-                          accessCodeController.text = template.accessCode ?? '';
-                          modelController.text = template.model ?? '';
-                          deviceIDController.text = template.deviceID ?? '';
-                        }
-                      });
-                    },
+                  ),
+                  const SizedBox(height: 8),
+                  if (selectedTemplate != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: Colors.blue.shade600, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Template "${selectedTemplate!.name}" selected. Click "Load" to fill the form.',
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                ] else ...<Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lightbulb_outline,
+                            color: Colors.orange.shade600, size: 16),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'No templates available. Add a printer and save it as a template for future use.',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],
+
+                // Clear form button
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            nameController.clear();
+                            ipController.clear();
+                            portController.text = '8883';
+                            accessCodeController.clear();
+                            modelController.clear();
+                            deviceIDController.clear();
+                            selectedTemplate = null;
+                          });
+                        },
+                        icon: const Icon(Icons.clear_all, size: 18),
+                        label: const Text('Clear Form'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
                 // Existing form fields
                 TextField(
@@ -526,13 +706,99 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
     );
   }
 
-  void _connectToPrinter(Printer printer) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PrinterControlScreen(printer: printer),
-      ),
-    );
+  void _connectToPrinter(Printer printer, bool isConnected) async {
+    // Show loading indicator
+
+    try {
+      // Attempt to connect to the printer
+      if (!isConnected) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text('Connecting to ${printer.name}...'),
+                const SizedBox(height: 8),
+                Text(
+                  'Please wait while we establish connection...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      // Close loading dialog
+
+      if (isConnected) {
+        // Show success message
+        //_showSuccessSnackBar('Connected to ${printer.name} successfully!');
+
+        // Connect to MQTT and start listening for printer data
+        final printerProvider =
+            Provider.of<PrinterProvider>(context, listen: false);
+        printerProvider.setPrinter(printer);
+        await printerProvider.connect();
+
+        // Navigate to printer control screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PrinterControlScreen(printer: printer),
+          ),
+        );
+      } else {
+        // Show error message with helpful tips
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Connection Failed'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Failed to connect to ${printer.name}.'),
+                const SizedBox(height: 12),
+                const Text('Please check:'),
+                const SizedBox(height: 8),
+                const Text('• Printer is powered on'),
+                const Text('• Network connection is stable'),
+                const Text('• IP address is correct'),
+                const Text('• Access code is valid'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _editPrinter(printer); // Allow user to edit printer settings
+                },
+                child: const Text('Edit Settings'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+
+      print('Error connecting to printer: $e');
+      _showErrorSnackBar('Connection error: ${e.toString()}');
+    }
   }
 
   Future<void> _refreshPrinters() async {

@@ -4,11 +4,14 @@ import 'dart:async';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import '../models/printer_data.dart';
+import '../models/printer.dart';
 
 class MqttService {
-  static const String printerIp = "192.168.1.57";
-  static const String accessCode = "22911038";
-  static const String deviceId = "01P00A372900757";
+  // Remove static const values and make them instance variables
+  String? _printerIp;
+  String? _accessCode;
+  String? _deviceId;
+  int _port = 8883;
 
   MqttServerClient? _client;
   Function(PrinterData)? onDataReceived;
@@ -21,7 +24,20 @@ class MqttService {
   bool get isConnected =>
       _client?.connectionStatus?.state == MqttConnectionState.connected;
 
+  // Add method to configure printer connection details
+  void configurePrinter(Printer printer) {
+    _printerIp = printer.ipAddress;
+    _accessCode = printer.accessCode;
+    _deviceId = printer.deviceID;
+    _port = printer.port;
+  }
+
   Future<bool> connect() async {
+    if (_printerIp == null || _accessCode == null) {
+      print('Printer not configured. Call configurePrinter() first.');
+      return false;
+    }
+
     if (_isConnecting) {
       print('Connection already in progress, skipping...');
       return false;
@@ -68,8 +84,8 @@ class MqttService {
     try {
       final clientId = 'bbl_flutter_${DateTime.now().millisecondsSinceEpoch}';
 
-      print('Creating MQTT client for $printerIp:$port (secure: $secure)');
-      _client = MqttServerClient(printerIp, clientId);
+      print('Creating MQTT client for $_printerIp:$port (secure: $secure)');
+      _client = MqttServerClient(_printerIp ?? "", clientId);
 
       // Essential configuration
       _client!.port = port;
@@ -89,14 +105,14 @@ class MqttService {
 
       // Set up event handlers
       _client!.onConnected = () {
-        print('✅ MQTT Connected successfully to $printerIp:$port');
+        print('✅ MQTT Connected successfully to $_printerIp:$port');
         _reconnectAttempts = 0;
         onConnectionChanged?.call(true);
         _subscribeToReports();
       };
 
       _client!.onDisconnected = () {
-        print('❌ MQTT Disconnected from $printerIp:$port');
+        print('❌ MQTT Disconnected from $_printerIp:$port');
         onConnectionChanged?.call(false);
         if (_reconnectAttempts < maxReconnectAttempts && !_isConnecting) {
           _scheduleReconnect();
@@ -110,13 +126,13 @@ class MqttService {
       // Create connection message
       final connMessage = MqttConnectMessage()
           .withClientIdentifier(clientId)
-          .authenticateAs('bblp', accessCode)
+          .authenticateAs('bblp', _accessCode)
           .startClean()
           .withWillQos(MqttQos.atMostOnce);
 
       _client!.connectionMessage = connMessage;
 
-      print('🔄 Attempting connection to $printerIp:$port...');
+      print('🔄 Attempting connection to $_printerIp:$port...');
       await _client!.connect();
 
       // Verify connection
@@ -129,7 +145,7 @@ class MqttService {
         return false;
       }
     } catch (e) {
-      print('❌ Connection attempt failed on $printerIp:$port: $e');
+      print('❌ Connection attempt failed on $_printerIp:$port: $e');
       await _cleanupConnection();
       return false;
     }
@@ -157,7 +173,7 @@ class MqttService {
   }
 
   void _subscribeToReports() {
-    final topic = 'device/$deviceId/report';
+    final topic = 'device/$_deviceId/report';
     print('📡 Subscribing to topic: $topic');
     _client!.subscribe(topic, MqttQos.atMostOnce);
   }
@@ -187,7 +203,7 @@ class MqttService {
     }
 
     try {
-      final topic = 'device/$deviceId/request';
+      final topic = 'device/$_deviceId/request';
       final message = json.encode(command);
 
       final builder = MqttClientPayloadBuilder();
