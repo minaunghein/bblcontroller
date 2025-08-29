@@ -521,7 +521,7 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                 TextField(
                   controller: deviceIDController,
                   decoration: const InputDecoration(
-                    labelText: 'Device ID (Optional)',
+                    labelText: 'Device ID',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -611,8 +611,33 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
 
   Future<void> _addPrinter(String name, String ip, int port, String accessCode,
       String? model, String? deviceID) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Connecting to $name...'),
+            const SizedBox(height: 8),
+            const Text(
+              'Retrieving printer information...',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     try {
-      final newPrinter = Printer(
+      // Create temporary printer for connection
+      final tempPrinter = Printer(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
         ipAddress: ip,
@@ -622,16 +647,95 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
         deviceID: deviceID,
       );
 
-      final result = await _databaseHelper.insertPrinter(newPrinter);
+      // Connect to printer and retrieve device information
+      final printerProvider =
+          Provider.of<PrinterProvider>(context, listen: false);
+      printerProvider.setPrinter(tempPrinter);
+
+      // Connect and wait for device information
+      await printerProvider.connect();
+
+      // Wait a bit for device information to be received
+      await Future.delayed(const Duration(seconds: 3));
+
+      // Get updated printer with device information
+      final updatedPrinter = printerProvider.currentPrinter ?? tempPrinter;
+
+      // Disconnect after retrieving information
+      await printerProvider.disconnect();
+
+      // Close loading dialog
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+
+      // Save printer with retrieved device information
+      final result = await _databaseHelper.insertPrinter(updatedPrinter);
       if (result > 0) {
-        _showSuccessSnackBar('Printer added successfully');
+        _showSuccessSnackBar(
+            'Printer added successfully with device information');
         _loadPrinters();
       } else {
         _showErrorSnackBar('Failed to add printer');
       }
     } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+
       print('Error adding printer: $e');
-      _showErrorSnackBar('Failed to add printer');
+
+      // Show error dialog with option to save without device info
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Failed'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Failed to retrieve device information from $name.'),
+              const SizedBox(height: 12),
+              const Text(
+                  'Would you like to save the printer without device information?'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+
+                // Save printer without device information
+                final basicPrinter = Printer(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: name,
+                  ipAddress: ip,
+                  port: port,
+                  accessCode: accessCode,
+                  model: model,
+                  deviceID: deviceID,
+                );
+
+                final result =
+                    await _databaseHelper.insertPrinter(basicPrinter);
+                if (result > 0) {
+                  _showSuccessSnackBar(
+                      'Printer added successfully (device info will be updated on first connection)');
+                  _loadPrinters();
+                } else {
+                  _showErrorSnackBar('Failed to add printer');
+                }
+              },
+              child: const Text('Save Anyway'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -685,7 +789,7 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
               TextField(
                 controller: deviceIDController,
                 decoration: const InputDecoration(
-                  labelText: 'Device ID (Optional)',
+                  labelText: 'Device ID',
                 ),
               ),
               const SizedBox(height: 16),
