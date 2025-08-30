@@ -17,15 +17,34 @@ class PrintersListScreen extends StatefulWidget {
 }
 
 class _PrintersListScreenState extends State<PrintersListScreen> {
+  bool isSearchable = false; // Set to true to enable search functionality
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Printers'),
+        backgroundColor: Colors.greenAccent[700],
+        foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              setState(() {
+                isSearchable = !isSearchable;
+                if (!isSearchable) {
+                  _searchController.clear();
+                  _filteredPrinters = _printers;
+                }
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshPrinters,
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showAddPrinterDialog,
           ),
           IconButton(
             icon: const Icon(Icons.settings),
@@ -38,44 +57,33 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
               );
             },
           ),
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: const Text('Database Info'),
-                onTap: () => _showDatabaseInfo(),
-              ),
-              PopupMenuItem(
-                child: const Text('About'),
-                onTap: () => _showAboutDialog(),
-              ),
-            ],
-          ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Search Printers',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                if (isSearchable)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        labelText: 'Search Printers',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _filteredPrinters = _printers
+                              .where((printer) => printer.name
+                                  .toLowerCase()
+                                  .contains(value.toLowerCase()))
+                              .toList();
+                        });
+                      },
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        _filteredPrinters = _printers
-                            .where((printer) => printer.name
-                                .toLowerCase()
-                                .contains(value.toLowerCase()))
-                            .toList();
-                      });
-                    },
                   ),
-                ),
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: _refreshPrinters,
@@ -218,31 +226,12 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                                               // Pin indicator (lock icon)
                                               if (printer.isPin)
                                                 Positioned(
-                                                  top: 10,
-                                                  left: 30,
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.amber,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              12),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: Colors.black
-                                                              .withOpacity(0.2),
-                                                          blurRadius: 2,
-                                                          offset: const Offset(
-                                                              0, 1),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.lock,
-                                                      color: Colors.white,
-                                                      size: 16,
-                                                    ),
+                                                  top: 15,
+                                                  left: 20,
+                                                  child: const Icon(
+                                                    Icons.push_pin,
+                                                    color: Colors.black,
+                                                    size: 16,
                                                   ),
                                                 ),
                                             ],
@@ -310,10 +299,6 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddPrinterDialog,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
