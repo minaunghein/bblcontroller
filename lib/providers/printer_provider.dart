@@ -11,15 +11,41 @@ class PrinterProvider with ChangeNotifier {
   bool _isConnected = false;
   String _lastUpdate = 'Never';
   Printer? _currentPrinter;
+  List<Printer> _allPrinters = [];
 
   PrinterData get printerData => _printerData;
   bool get isConnected => _isConnected;
   String get lastUpdate => _lastUpdate;
   Printer? get currentPrinter => _currentPrinter;
+  List<Printer> get allPrinters => _allPrinters;
 
   PrinterProvider() {
     _mqttService.onDataReceived = _updatePrinterData;
     _mqttService.onConnectionChanged = _updateConnectionStatus;
+  }
+
+  // Add method to load all printers
+  Future<void> loadAllPrinters() async {
+    try {
+      _allPrinters = await _databaseHelper.getAllPrinters();
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to load printers: $e');
+      }
+    }
+  }
+
+  // Add method to get pinned printer
+  Future<Printer?> getPinnedPrinter() async {
+    try {
+      return await _databaseHelper.getPinnedPrinter();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to get pinned printer: $e');
+      }
+      return null;
+    }
   }
 
   // Add setPrinter method to configure the current printer

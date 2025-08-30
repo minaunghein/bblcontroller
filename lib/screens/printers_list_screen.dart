@@ -84,13 +84,13 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                             child: Text('No printers found'),
                           )
                         : GridView.builder(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(6),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: 0.8,
+                              crossAxisSpacing: 5,
+                              mainAxisSpacing: 6,
+                              childAspectRatio: .7,
                             ),
                             itemCount: _filteredPrinters.length,
                             itemBuilder: (context, index) {
@@ -103,224 +103,203 @@ class _PrintersListScreenState extends State<PrintersListScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: InkWell(
-                                  onTap: () => _connectToPrinter(
-                                      printer, printer.isOnline),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Status indicator and menu
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: InkWell(
+                                    onTap: () => _connectToPrinter(
+                                        printer, printer.isOnline),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // Status indicator and menu
 
-                                        const SizedBox(height: 12),
-                                        // Printer image
-                                        Stack(
-                                          children: [
-                                            Center(
-                                              child: Container(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    4,
-                                                height: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    4,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  child: Image.asset(
-                                                    _getPrinterImageAsset(
-                                                        printer.model),
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context,
-                                                        error, stackTrace) {
-                                                      // Fallback to icon if image fails to load
-                                                      return Icon(
-                                                        Icons.print,
-                                                        size: 48,
-                                                        color: isOnline
-                                                            ? Colors.blue
-                                                            : Colors.grey,
-                                                      );
-                                                    },
-                                                  ),
+                                          // Printer image
+                                          Stack(
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.asset(
+                                                  _getPrinterImageAsset(
+                                                      printer.model),
+                                                  fit: BoxFit.contain,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    // Fallback to icon if image fails to load
+                                                    return Icon(
+                                                      Icons.print,
+                                                      size: 48,
+                                                      color: isOnline
+                                                          ? Colors.blue
+                                                          : Colors.grey,
+                                                    );
+                                                  },
                                                 ),
                                               ),
-                                            ),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Container(
-                                                  width: 12,
-                                                  height: 12,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    color: isOnline
-                                                        ? Colors.green
-                                                        : Colors.red,
+
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Container(
+                                                    width: 12,
+                                                    height: 12,
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: isOnline
+                                                          ? Colors.green
+                                                          : Colors.red,
+                                                    ),
                                                   ),
-                                                ),
-                                                PopupMenuButton(
-                                                  itemBuilder: (context) => [
-                                                    PopupMenuItem(
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(
-                                                            printer.isPin
-                                                                ? Icons
-                                                                    .lock_open
-                                                                : Icons
-                                                                    .push_pin,
-                                                            size: 18,
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          Text(printer.isPin
-                                                              ? 'Unpin'
-                                                              : 'Pin'),
-                                                        ],
-                                                      ),
-                                                      onTap: () =>
-                                                          _togglePinPrinter(
-                                                              printer),
-                                                    ),
-                                                    PopupMenuItem(
-                                                      child: const Row(
-                                                        children: [
-                                                          Icon(Icons.edit,
-                                                              size: 18),
-                                                          SizedBox(width: 8),
-                                                          Text('Edit'),
-                                                        ],
-                                                      ),
-                                                      onTap: () =>
-                                                          _editPrinter(printer),
-                                                    ),
-                                                    PopupMenuItem(
-                                                      child: const Row(
-                                                        children: [
-                                                          Icon(Icons.delete,
+                                                  PopupMenuButton(
+                                                    itemBuilder: (context) => [
+                                                      PopupMenuItem(
+                                                        child: Row(
+                                                          children: [
+                                                            Icon(
+                                                              printer.isPin
+                                                                  ? Icons
+                                                                      .lock_open
+                                                                  : Icons
+                                                                      .push_pin,
                                                               size: 18,
-                                                              color:
-                                                                  Colors.red),
-                                                          SizedBox(width: 8),
-                                                          Text('Delete',
-                                                              style: TextStyle(
-                                                                  color: Colors
-                                                                      .red)),
-                                                        ],
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 8),
+                                                            Text(printer.isPin
+                                                                ? 'Unpin'
+                                                                : 'Pin'),
+                                                          ],
+                                                        ),
+                                                        onTap: () =>
+                                                            _togglePinPrinter(
+                                                                printer),
                                                       ),
-                                                      onTap: () =>
-                                                          _deletePrinter(
-                                                              printer),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            // Pin indicator (lock icon)
-                                            if (printer.isPin)
-                                              Positioned(
-                                                top: 0,
-                                                right: 30,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.all(4),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.amber,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.2),
-                                                        blurRadius: 2,
-                                                        offset:
-                                                            const Offset(0, 1),
+                                                      PopupMenuItem(
+                                                        child: const Row(
+                                                          children: [
+                                                            Icon(Icons.edit,
+                                                                size: 18),
+                                                            SizedBox(width: 8),
+                                                            Text('Edit'),
+                                                          ],
+                                                        ),
+                                                        onTap: () =>
+                                                            _editPrinter(
+                                                                printer),
+                                                      ),
+                                                      PopupMenuItem(
+                                                        child: const Row(
+                                                          children: [
+                                                            Icon(Icons.delete,
+                                                                size: 18,
+                                                                color:
+                                                                    Colors.red),
+                                                            SizedBox(width: 8),
+                                                            Text('Delete',
+                                                                style: TextStyle(
+                                                                    color: Colors
+                                                                        .red)),
+                                                          ],
+                                                        ),
+                                                        onTap: () =>
+                                                            _deletePrinter(
+                                                                printer),
                                                       ),
                                                     ],
                                                   ),
-                                                  child: const Icon(
-                                                    Icons.lock,
-                                                    color: Colors.white,
-                                                    size: 16,
+                                                ],
+                                              ),
+                                              // Pin indicator (lock icon)
+                                              if (printer.isPin)
+                                                Positioned(
+                                                  top: 10,
+                                                  left: 30,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.amber,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black
+                                                              .withOpacity(0.2),
+                                                          blurRadius: 2,
+                                                          offset: const Offset(
+                                                              0, 1),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.lock,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    ),
                                                   ),
                                                 ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          // Printer name
+                                          Text(
+                                            printer.name +
+                                                " (${printer.model})",
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+
+                                          const SizedBox(height: 2),
+                                          // IP Address
+                                          Text(
+                                            'IP: ${printer.ipAddress}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey[600],
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const Spacer(),
+                                          // Status text and wifi icon
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                isOnline ? 'Online' : 'Offline',
+                                                style: TextStyle(
+                                                  color: isOnline
+                                                      ? Colors.green
+                                                      : Colors.red,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        // Printer name
-                                        Text(
-                                          printer.name,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Printer model
-                                        Text(
-                                          'Model: ${printer.model ?? 'Unknown'}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        // IP Address
-                                        Text(
-                                          'IP: ${printer.ipAddress}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const Spacer(),
-                                        // Status text and wifi icon
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              isOnline ? 'Online' : 'Offline',
-                                              style: TextStyle(
+                                              Icon(
+                                                isOnline
+                                                    ? Icons.wifi
+                                                    : Icons.wifi_off,
                                                 color: isOnline
                                                     ? Colors.green
                                                     : Colors.red,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
+                                                size: 20,
                                               ),
-                                            ),
-                                            Icon(
-                                              isOnline
-                                                  ? Icons.wifi
-                                                  : Icons.wifi_off,
-                                              color: isOnline
-                                                  ? Colors.green
-                                                  : Colors.red,
-                                              size: 20,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),

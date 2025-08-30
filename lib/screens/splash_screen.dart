@@ -32,14 +32,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
       // Load all printers from database
       final List<Printer> allPrinters = await _databaseHelper.getAllPrinters();
-      
+
       setState(() {
         _loadingText = 'Checking for pinned printer...';
       });
 
       // Check if there's a pinned printer
       final Printer? pinnedPrinter = await _databaseHelper.getPinnedPrinter();
-      
+
       if (pinnedPrinter != null) {
         setState(() {
           _loadingText = 'Connecting to ${pinnedPrinter.name}...';
@@ -47,18 +47,30 @@ class _SplashScreenState extends State<SplashScreen> {
 
         // Set up the printer provider with the pinned printer
         if (mounted) {
-          final printerProvider = Provider.of<PrinterProvider>(context, listen: false);
+          final printerProvider =
+              Provider.of<PrinterProvider>(context, listen: false);
           printerProvider.setPrinter(pinnedPrinter);
-          
+
           // Connect to the printer
           await printerProvider.connect();
-          
-          // Navigate to printer control screen
+
+          // First navigate to printer list, then to control screen
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => PrinterControlScreen(printer: pinnedPrinter),
+              builder: (context) => const PrintersListScreen(),
             ),
           );
+
+          // Then navigate to printer control screen
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    PrinterControlScreen(printer: pinnedPrinter),
+              ),
+            );
+          }
         }
       } else {
         // No pinned printer, navigate to printer list
@@ -74,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
       setState(() {
         _loadingText = 'Error loading printers: $e';
       });
-      
+
       // Wait a bit then navigate to printer list as fallback
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
@@ -91,13 +103,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1e1e1e), Color(0xFF2d2d2d)],
-          ),
-        ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -107,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade600,
+                  color: Colors.green,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Icon(
@@ -117,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              
+
               // App title
               const Text(
                 'Bambulab Controller',
@@ -128,13 +133,13 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              
+
               // Loading indicator
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
               ),
               const SizedBox(height: 20),
-              
+
               // Loading text
               Text(
                 _loadingText,
