@@ -7,7 +7,6 @@ class PrinterData {
   final int mcRemainingTime;
   final String status;
   final String? lastUpdate;
-  final Device? device;
 
   PrinterData({
     this.nozzleTemper = 0.0,
@@ -16,7 +15,6 @@ class PrinterData {
     this.mcRemainingTime = 0,
     this.status = 'Unknown',
     this.lastUpdate,
-    this.device,
   });
 
   factory PrinterData.fromJson(Map<String, dynamic> json) {
@@ -27,7 +25,6 @@ class PrinterData {
       mcRemainingTime: json['mc_remaining_time'] ?? 0,
       status: json['status'] ?? 'Unknown',
       lastUpdate: json['last_update'],
-      device: json['device'] != null ? Device.fromJson(json['device']) : null,
     );
   }
 

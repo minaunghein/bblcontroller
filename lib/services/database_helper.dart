@@ -22,7 +22,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'printers.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 5, // Increment version to trigger upgrade for isPin column
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -42,7 +42,8 @@ class DatabaseHelper {
         status TEXT,
         lastSeen TEXT,
         createdAt TEXT NOT NULL,
-        updatedAt TEXT NOT NULL
+        updatedAt TEXT NOT NULL,
+        isPin INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -89,6 +90,11 @@ class DatabaseHelper {
       await db
           .execute('CREATE INDEX idx_template_name ON printer_templates(name)');
     }
+    
+    // Add isPin column for version 5
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE printers ADD COLUMN isPin INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   // CRUD Operations
@@ -101,6 +107,12 @@ class DatabaseHelper {
     printerMap['createdAt'] = now;
     printerMap['updatedAt'] = now;
     printerMap['isOnline'] = printer.isOnline ? 1 : 0;
+    printerMap['isPin'] = printer.isPin ? 1 : 0; // Convert boolean to integer
+
+    // If this printer is being pinned, unpin all others first
+    if (printer.isPin) {
+      await _unpinAllPrinters();
+    }
 
     try {
       await db.insert(
@@ -120,21 +132,13 @@ class DatabaseHelper {
     try {
       final List<Map<String, dynamic>> maps = await db.query(
         'printers',
-        orderBy: 'name ASC',
+        orderBy: 'isPin DESC, name ASC', // Show pinned printer first
       );
 
       return List.generate(maps.length, (i) {
         final map = Map<String, dynamic>.from(maps[i]);
         map['isOnline'] = maps[i]['isOnline'] == 1;
-        // Parse device JSON string back to object
-        if (map['device'] != null && map['device'].toString().isNotEmpty) {
-          try {
-            map['device'] = json.decode(map['device']);
-          } catch (e) {
-            print('Error parsing device JSON: $e');
-            map['device'] = null;
-          }
-        }
+        map['isPin'] = maps[i]['isPin'] == 1; // Convert integer to boolean
         return Printer.fromJson(map);
       });
     } catch (e) {
@@ -156,6 +160,7 @@ class DatabaseHelper {
       if (maps.isNotEmpty) {
         final map = Map<String, dynamic>.from(maps.first);
         map['isOnline'] = maps.first['isOnline'] == 1;
+        map['isPin'] = maps.first['isPin'] == 1; // Convert integer to boolean
         return Printer.fromJson(map);
       }
       return null;
@@ -193,19 +198,113 @@ class DatabaseHelper {
     final printerMap = printer.toJson();
     printerMap['updatedAt'] = now;
     printerMap['isOnline'] = printer.isOnline ? 1 : 0;
-    // Convert device object to JSON string for storage
-    printerMap['device'] = json.encode(printer.device.toJson());
+    printerMap['isPin'] = printer.isPin ? 1 : 0; // Convert boolean to integer
+
+    // If this printer is being pinned, unpin all others first
+    if (printer.isPin) {
+      await _unpinAllPrinters();
+    }
+
+    // Convert device object to JSON string for database storage
+    if (printerMap['device'] != null) {
+      printerMap['device'] = jsonEncode(printerMap['device']);
+    }
 
     try {
-      return await db.update(
+      final result = await db.update(
         'printers',
         printerMap,
         where: 'id = ?',
         whereArgs: [printer.id],
       );
+      return result;
     } catch (e) {
       print('Error updating printer: $e');
       return 0;
+    }
+  }
+
+  // Helper method to unpin all printers
+  Future<void> _unpinAllPrinters() async {
+    final db = await database;
+    try {
+      await db.update(
+        'printers',
+        {'isPin': 0, 'updatedAt': DateTime.now().toIso8601String()},
+      );
+    } catch (e) {
+      print('Error unpinning all printers: $e');
+    }
+  }
+
+  // Method to pin a specific printer (unpins all others)
+  Future<int> pinPrinter(String printerId) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    
+    try {
+      // Start a transaction to ensure atomicity
+      await db.transaction((txn) async {
+        // First, unpin all printers
+        await txn.update(
+          'printers',
+          {'isPin': 0, 'updatedAt': now},
+        );
+        
+        // Then pin the specified printer
+        await txn.update(
+          'printers',
+          {'isPin': 1, 'updatedAt': now},
+          where: 'id = ?',
+          whereArgs: [printerId],
+        );
+      });
+      return 1;
+    } catch (e) {
+      print('Error pinning printer: $e');
+      return 0;
+    }
+  }
+
+  // Method to unpin a printer
+  Future<int> unpinPrinter(String printerId) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    
+    try {
+      return await db.update(
+        'printers',
+        {'isPin': 0, 'updatedAt': now},
+        where: 'id = ?',
+        whereArgs: [printerId],
+      );
+    } catch (e) {
+      print('Error unpinning printer: $e');
+      return 0;
+    }
+  }
+
+  // Method to get the currently pinned printer
+  Future<Printer?> getPinnedPrinter() async {
+    final db = await database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'printers',
+        where: 'isPin = ?',
+        whereArgs: [1],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        final map = Map<String, dynamic>.from(maps.first);
+        map['isOnline'] = maps.first['isOnline'] == 1;
+        map['isPin'] = maps.first['isPin'] == 1;
+        return Printer.fromJson(map);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting pinned printer: $e');
+      return null;
     }
   }
 
@@ -445,29 +544,6 @@ class DatabaseHelper {
     } catch (e) {
       print('Error searching templates: $e');
       return [];
-    }
-  }
-
-  Future<int> updatePrinterDeviceInfo(String printerId, Device device) async {
-    final db = await database;
-    final now = DateTime.now().toIso8601String();
-
-    final updateMap = {
-      'device': json.encode(device.toJson()),
-      'model': device.model, // Also update the legacy model field
-      'updatedAt': now,
-    };
-
-    try {
-      return await db.update(
-        'printers',
-        updateMap,
-        where: 'id = ?',
-        whereArgs: [printerId],
-      );
-    } catch (e) {
-      print('Error updating printer device info: $e');
-      return 0;
     }
   }
 }

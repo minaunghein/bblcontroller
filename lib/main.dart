@@ -24,7 +24,8 @@ class MyApp extends StatelessWidget {
             title: 'Bambulab Controller',
             theme: themeProvider.lightTheme,
             darkTheme: themeProvider.darkTheme,
-            themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            themeMode:
+                themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: const PrintersListScreen(),
             debugShowCheckedModeBanner: false,
           );

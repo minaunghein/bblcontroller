@@ -201,9 +201,6 @@ class MqttService {
                 _parseRemainingTime(printData['mc_remaining_time']),
             status: printData['gcode_state'] ?? 'Unknown',
             lastUpdate: data['timestamp'] ?? DateTime.now().toIso8601String(),
-            device: printData['device'] != null
-                ? Device.fromJson(printData['device'])
-                : null,
           );
 
           print(

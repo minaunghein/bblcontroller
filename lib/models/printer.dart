@@ -1,48 +1,3 @@
-class Device {
-  final String nozzleDiameter;
-  final String model;
-  final String nozzleType;
-
-  Device({
-    required this.nozzleDiameter,
-    required this.model,
-    required this.nozzleType,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'nozzle_diameter': nozzleDiameter,
-      'model': model,
-      'nozzle_type': nozzleType,
-    };
-  }
-
-  factory Device.fromJson(Map<String, dynamic> json) {
-    return Device(
-      nozzleDiameter: json['nozzle_diameter'] ?? '0.4',
-      model: json['model'] ?? 'Unknown',
-      nozzleType: json['nozzle_type'] ?? 'standard',
-    );
-  }
-
-  Device copyWith({
-    String? nozzleDiameter,
-    String? model,
-    String? nozzleType,
-  }) {
-    return Device(
-      nozzleDiameter: nozzleDiameter ?? this.nozzleDiameter,
-      model: model ?? this.model,
-      nozzleType: nozzleType ?? this.nozzleType,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'Device{nozzleDiameter: $nozzleDiameter, model: $model, nozzleType: $nozzleType}';
-  }
-}
-
 class Printer {
   final String id;
   final String name;
@@ -62,8 +17,8 @@ class Printer {
   final int mcPercent;
   final int mcRemainingTime;
   final String printerStatus;
+  final bool isPin; // New property for pinning functionality
   // Device subproperties
-  final Device device;
 
   Printer({
     required this.id,
@@ -83,8 +38,8 @@ class Printer {
     this.mcPercent = 0,
     this.mcRemainingTime = 0,
     this.printerStatus = 'Unknown',
-    Device? device,
-  }) : device = device ?? Device(nozzleDiameter: '0.4', model: 'Unknown', nozzleType: 'standard');
+    this.isPin = false, // Default to false
+  });
 
   Map<String, dynamic> toJson() {
     return {
@@ -100,12 +55,12 @@ class Printer {
       'lastSeen': lastSeen?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
-      'nozzleTemper': nozzleTemper,
-      'bedTemper': bedTemper,
-      'mcPercent': mcPercent,
-      'mcRemainingTime': mcRemainingTime,
-      'printerStatus': printerStatus,
-      'device': device.toJson(),
+      'isPin': isPin, // Include in JSON serialization
+      // 'nozzleTemper': nozzleTemper,
+      // 'bedTemper': bedTemper,
+      // 'mcPercent': mcPercent,
+      // 'mcRemainingTime': mcRemainingTime,
+      // 'printerStatus': printerStatus,
     };
   }
 
@@ -131,7 +86,7 @@ class Printer {
       mcPercent: json['mcPercent'] ?? 0,
       mcRemainingTime: json['mcRemainingTime'] ?? 0,
       printerStatus: json['printerStatus'] ?? 'Unknown',
-      device: json['device'] != null ? Device.fromJson(json['device']) : null,
+      isPin: json['isPin'] ?? false, // Handle isPin from JSON
     );
   }
 
@@ -153,7 +108,7 @@ class Printer {
     int? mcPercent,
     int? mcRemainingTime,
     String? printerStatus,
-    Device? device,
+    bool? isPin, // Add isPin to copyWith method
   }) {
     return Printer(
       id: id ?? this.id,
@@ -173,13 +128,13 @@ class Printer {
       mcPercent: mcPercent ?? this.mcPercent,
       mcRemainingTime: mcRemainingTime ?? this.mcRemainingTime,
       printerStatus: printerStatus ?? this.printerStatus,
-      device: device ?? this.device,
+      isPin: isPin ?? this.isPin, // Include isPin in copyWith
     );
   }
 
   @override
   String toString() {
-    return 'Printer{id: $id, name: $name, ipAddress: $ipAddress, deviceID: $deviceID, isOnline: $isOnline}';
+    return 'Printer{id: $id, name: $name, ipAddress: $ipAddress, deviceID: $deviceID, isOnline: $isOnline, isPin: $isPin}';
   }
 
   @override
